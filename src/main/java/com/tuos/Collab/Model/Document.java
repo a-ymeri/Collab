@@ -4,35 +4,106 @@ import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.List;
 
 public class Document {
 	String text;
 	ArrayList<Operation> historyBuffer;
 	HashMap<OperationKey, OperationKey> effectsRelation;
+	int state;
 
 	public Document(String text) {
 		this.text = text;
 		effectsRelation = new HashMap<OperationKey, OperationKey>();
+		historyBuffer = new ArrayList<Operation>();
+		state = 0;
 	}
 
-	public void update(Operation op) {
+	public synchronized Operation update(Operation op) throws Exception {
 		StringBuilder sb = new StringBuilder(text);
-		if (op.getType().equals("ins")) {
-			sb.insert(op.getPosition(), op.getCharacter());
-		} else {
-			sb.deleteCharAt(op.getPosition());
+
+		op = this.integrate(op);
+		if (op.getPosition() >= 0 && op.getPosition() <= text.length()) {
+			if (op.getType().equals("ins")) {
+				sb.insert(op.getPosition(), op.getCharacter());
+			} else {
+				sb.deleteCharAt(op.getPosition());
+			}
+			op.setStateID(state++);
+			historyBuffer.add(op);
+			text = sb.toString();
 		}
-		text = sb.toString();
+		return op;
 	}
 
+	public ArrayList<Operation> getHistoryBuffer() {
+		return this.historyBuffer;
+	}
 	public String getText() {
 		return text;
 	}
+	
+	public void resetHB() {
+		this.historyBuffer = new ArrayList<Operation>();
+		state = 0;
+	}
+
+	public long getState() {
+		return state;
+	}
+	
+	public Operation integrate(Operation op) throws Exception {
+		// Normally this should be a clear split anyway but it also contextually
+		// serializes if needed
+		// Will have to rethink the necessity of the serial contextualization but it
+		// doesn't hurt the performance much
+		ArrayList<ArrayList<Operation>> transposedLists = transposePreCon(op, historyBuffer);
+		ArrayList<Operation> happened = transposedLists.get(0);
+		ArrayList<Operation> concurrent = transposedLists.get(1);
+		Operation newOp = null;
+
+		// If no concurrent operations, just return and dont transform
+		if (concurrent.size() == 0) {
+			newOp = new Operation(op);
+			return newOp;
+		}
+
+		if (op.getType() == "del") {
+			newOp = this.it_sq(op, concurrent);
+			return newOp;
+		} else { // op.type == "ins"
+
+			// fixed list
+			ArrayList<Operation> etsos_happened = this.buildETSOS(happened);
+
+			// insertions and deletions that have happened
+			ArrayList<ArrayList<Operation>> insDelLists = this.transposeInsDel(etsos_happened);
+			// ArrayList<Operation> happenedInsert = insDelLists.get(0);
+			ArrayList<Operation> happenedDelete = insDelLists.get(1);
+
+			// all deletions that have happened and concurrent operations
+			ArrayList<Operation> newList = (ArrayList<Operation>) Stream
+					.concat(happenedDelete.stream(), concurrent.stream()).collect(Collectors.toList());
+			ArrayList<Operation> happenedDelConc = this.buildETSOS(newList);
+
+			// All insertions and deletions
+			ArrayList<ArrayList<Operation>> insDels = this.transposeInsDel(happenedDelConc);
+			ArrayList<Operation> insertions = insDels.get(0);
+			ArrayList<Operation> deletions = insDels.get(1);
+
+			Operation innerOp = this.et_sq(op, happenedDelete); // o'', this is the back backwards
+
+			ArrayList<Operation> allInsDels = (ArrayList<Operation>) Stream
+					.concat(insertions.stream(), deletions.stream()).collect(Collectors.toList());
+			newOp = this.it_sq(innerOp, allInsDels);
+			return newOp;
+		}
+	}
 
 	// Transform an operation o1 against o2 such that the effect of o2 is included
-	private Operation inclusionTransform(Operation o1, Operation o2) {
+	public Operation inclusionTransform(Operation o1, Operation o2) {
 		/*-1 = O1 is to the left of O2, so don't transform
 		 * 0 = Same position, used for double deletions
 		 * 1 = O1 is to the right of O2, transform*/
@@ -48,7 +119,7 @@ public class Document {
 				if (o2.getType().equals("ins")) {// ins = insertion operator
 					newOp1.shiftRight(); // position++
 				} else { // o2.type = deletion
-					newOp1.shiftRight();// position--
+					newOp1.shiftLeft();// position--
 				}
 			}
 		}
@@ -57,10 +128,10 @@ public class Document {
 
 	private int get_ER_IT(Operation o1, Operation o2) {
 		// Check if there is a mapping of o1->o2 or o2->o1
-		if (effectsRelation.get(o1.getKey()) != null) {
+		if (effectsRelation.get(o1.getKey()) == o2.getKey()) {
 			return -1;
 		}
-		if (effectsRelation.get(o2.getKey()) != null) {
+		if (effectsRelation.get(o2.getKey()) == o1.getKey()) {
 			return 1;
 		}
 
@@ -72,7 +143,7 @@ public class Document {
 			effectsRelation.put(o1.getKey(), o2.getKey());
 		} else if (o1.getPosition() == o2.getPosition()) {
 			// If two insertions, arbitrarily choose by site id, don't transform
-			if (o1.getType().equals("ins") && o2.getType().equals("ins") && o1.getSiteId() < o2.getSiteId()) {
+			if (o1.getType().equals("ins") && o2.getType().equals("ins") && o1.getSiteID() < o2.getSiteID()) {
 				relationship = -1;
 				effectsRelation.put(o1.getKey(), o2.getKey());
 			} else if (o1.getType().equals("del") && o2.getType().equals("del")) {
@@ -90,6 +161,7 @@ public class Document {
 		int relationship = get_ER_ET(o1, o2);
 		Operation newOp2 = null;
 		if (relationship == 0) {
+			newOp2 = new Operation(' ', -1);
 			throw new Exception("HALT, DOUBLE DELETION");
 		} else {
 			newOp2 = new Operation(o2);
@@ -106,10 +178,10 @@ public class Document {
 	}
 
 	private int get_ER_ET(Operation o1, Operation o2) {
-		if (effectsRelation.get(o1.getKey()) != null) {
+		if (effectsRelation.get(o1.getKey()) == o2.getKey()) {
 			return -1;
 		}
-		if (effectsRelation.get(o2.getKey()) != null) {
+		if (effectsRelation.get(o2.getKey()) == o1.getKey()) {
 			return 1;
 		}
 
@@ -144,27 +216,6 @@ public class Document {
 		return relationship;
 	}
 
-	public static void main(String[] args) {
-		Document d = new Document("ardit");
-		Document d2 = new Document("ardit");
-
-		Operation op1 = new Operation('c', 0, 0, "ins"); // cardit
-		Operation op2 = new Operation(0, 1, "del"); // adit
-
-		System.out.println(d.getText());
-		d.update(op1);
-		d.update(d.inclusionTransform(op2, op1));
-		System.out.println(d.getText());
-
-		System.out.println("------------------");
-
-		System.out.println(d2.getText());
-		d2.update(op1);
-		d2.update(op2);
-		System.out.println(d2.getText());
-
-	}
-
 	/*
 	 * Precondition: Sequence must be IT-safe (i.e. all insertion operations should
 	 * be before deletion operations)
@@ -174,7 +225,7 @@ public class Document {
 		Operation newOp = new Operation(op); // Copy the object
 		for (int i = 0; i < sequence.size(); i++) {
 			newOp = inclusionTransform(newOp, sequence.get(i));
-			if (newOp.getCharacter() == ' ') {
+			if (newOp.getPosition() < 0) {
 				break;
 			}
 		}
@@ -225,7 +276,7 @@ public class Document {
 		return newOp;
 	}
 
-	//return <op1', op2'>
+	// return <op1', op2'>
 	private ArrayList<Operation> transpose(Operation o2, Operation o1) throws Exception {
 		ArrayList<Operation> transposedOperations = new ArrayList<Operation>();
 
@@ -234,13 +285,13 @@ public class Document {
 			transposedOperations.add(1, o2);
 		} else {
 			transposedOperations.add(this.exclusionTransform(o1, o2));
-			transposedOperations.add(this.inclusionTransform(o2, o1));
+			transposedOperations.add(this.inclusionTransform(o2, transposedOperations.get(0)));
 		}
 
 		return transposedOperations;
 	}
 
-	// Returns a map entry where the key is the transposed operation while the valye
+	// Returns a map entry where the key is the transposed operation while the value
 	// is the transposed sequence
 	private Map.Entry<Operation, ArrayList<Operation>> transposeOSq(ArrayList<Operation> sq, Operation op)
 			throws Exception {
@@ -267,7 +318,8 @@ public class Document {
 
 	// Given an operation o and a sequence sq, returns the list of all operations
 	// that happened before o and the list of all that happened
-	// after o from sq. Currently looks at stateID, might have to revisit TODO
+	// concurrently with o from sq. Currently looks at stateID, might have to
+	// revisit TODO
 	private ArrayList<ArrayList<Operation>> transposePreCon(Operation op, ArrayList<Operation> sq) throws Exception {
 		ArrayList<Operation> happened = new ArrayList<>();
 		ArrayList<Operation> concurrent = new ArrayList<>();
@@ -295,7 +347,7 @@ public class Document {
 		ArrayList<Operation> deletions = new ArrayList<>();
 		ArrayList<ArrayList<Operation>> sequences = new ArrayList<>();
 		for (int i = 0; i < sq.size(); i++) {
-			if (sq.get(i).getType().equals("del")){
+			if (sq.get(i).getType().equals("del")) {
 				deletions.add(sq.get(i));
 			} else {
 				Map.Entry<Operation, ArrayList<Operation>> response = transposeOSq(deletions, sq.get(i));
@@ -306,43 +358,57 @@ public class Document {
 		sequences.add(deletions);
 		return sequences;
 	}
-	
+
+	// Basically builds a list that is sorted by the index of operations (effects
+	// relation)
 	private ArrayList<Operation> buildETSOS(ArrayList<Operation> sq) throws Exception {
-		if (sq.size()<1) {
+		if (sq.size() < 1) {
 			return sq;
 		}
 		ArrayList<Operation> newSq = new ArrayList<Operation>();
 		Operation op = null;
 		boolean flag = true;
-		
+
 		newSq.add(sq.get(0));
-		for(int i = 0; i<sq.size(); i++) {
-			op = sq.get(i);
+		for (int i = 1; i < sq.size(); i++) {
+			op = new Operation(sq.get(i));
 			flag = false;
-			for(int j = newSq.size()-1;j>=0; j--) {
-				if(flag) {
+			for (int j = newSq.size() - 1; j >= 0; j--) {
+				if (flag) {
 					this.effectsRelation.put(newSq.get(j).getKey(), op.getKey());
-				}else {
-					if(this.get_ER_ET(newSq.get(j), op)==-1) { // if sq[j] is to the left of op
-						
-						//PLEASE TEST THIS
-						List<Operation> firstHalf = newSq.subList(0, j);
-						List<Operation> secondHalf = newSq.subList(j+1, newSq.size()-1);
-						newSq = (ArrayList<Operation>) firstHalf;
-						newSq.add(op);
-						newSq.addAll(secondHalf);
-						
+				} else {
+					if (this.get_ER_ET(newSq.get(j), op) == -1) { // if sq[j] is to the left of op
+
+						// PLEASE TEST THIS
+						ArrayList<Operation> temp = new ArrayList<Operation>();
+						for (int k = 0; k <= j; k++) {
+							temp.add(newSq.get(k));
+						}
+						temp.add(op);
+						for (int k = j + 1; k <= newSq.size() - 1; k++) {
+							temp.add(newSq.get(k));
+						}
+						newSq = temp;
+
+//						ArrayList<Operation> firstHalf = (ArrayList<Operation>) newSq.subList(0, j);
+//						ArrayList<Operation> secondHalf = (ArrayList<Operation>) newSq.subList(j + 1, newSq.size() - 1);
+//						newSq =  firstHalf;
+//						newSq.add(op);
+//						newSq.addAll(secondHalf);
+
+						// newSq.add(j,op);
+
 						flag = true;
-					}else {
+					} else {
 						ArrayList<Operation> transposed = this.transpose(newSq.get(j), op);
 						op = transposed.get(0);
 						newSq.set(j, transposed.get(1));
 					}
 				}
 			}
-			
-			if(!flag) {
-				newSq.add(0,op);
+
+			if (!flag) {
+				newSq.add(0, op);
 			}
 		}
 		return newSq;

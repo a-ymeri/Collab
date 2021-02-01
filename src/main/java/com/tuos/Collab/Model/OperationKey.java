@@ -1,10 +1,10 @@
 package com.tuos.Collab.Model;
 
 public class OperationKey {
-	private int siteId;
+	private long siteId;
 	private int stateId;
 
-	public OperationKey(int siteId, int stateId) {
+	public OperationKey(long siteId, int stateId) {
 		this.siteId = siteId;
 		this.stateId = stateId;
 	}
