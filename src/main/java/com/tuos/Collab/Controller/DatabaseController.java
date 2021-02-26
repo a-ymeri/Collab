@@ -19,7 +19,7 @@ public class DatabaseController {
 		//return usr + " " + psw;
 	}
 	
-	@RequestMapping("/auth/createUser")
+	@RequestMapping("/auth/deleteUser")
 	public String deleteUser(@RequestParam String usr, @RequestParam String psw ) {
 		System.out.println("username: " + usr);
 		System.out.println("psw: " + psw);
