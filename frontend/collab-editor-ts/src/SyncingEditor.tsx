@@ -78,23 +78,35 @@ export const SyncingEditor: React.FC<Props> = () => {
     function onReceived(op: CustomOperation) {
 
         if (op.siteID !== ID) {
+
+            console.log("Remote execution of: character:" + op.text + " | offset:" + op.offset + " | stateID: " + op.stateID);
+            //PUT BACK ON LINE ~107 IF SHIT DOESNT WORK TODO:
+            //op = integrate(op, historyBuffer, toSendBuffer); //TODO: change back to concurrent MAYBE
+
+
+            let tempOp: CustomOperation;
+
+
+
+            //If it's below 0, useless operation
             if (op.offset >= 0) {
-                console.log("Remote execution of: character:" + op.text + " | offset:" + op.offset + " | stateID: " + op.stateID);
-                //PUT BACK ON LINE ~107 IF SHIT DOESNT WORK TODO:
-                op = integrate(op, historyBuffer, toSendBuffer); //TODO: change back to concurrent MAYBE
+                for (let i = 0; i < toSendBuffer.length; i++) {
+                    tempOp = copy(op);
+                    op = inclusionTransform(op, toSendBuffer[i]);
+                    if (op.offset === -1) {
+                        toSendBuffer.splice(i, 1);
+                        break;
+                    }
+                    toSendBuffer[i] = inclusionTransform(toSendBuffer[i], tempOp);
 
-                
+                }
+            }
 
-                toSendBuffer.forEach((operation) => {
-                    operation = inclusionTransform(operation, op);
-                    operation.stateID++;
-                })
-
-
-
-
-
-
+            toSendBuffer.forEach((operation, index) => {
+                toSendBuffer[index].stateID++;
+            })
+            
+            if (op.offset >= 0) {
                 remote.current = true;
 
                 editor.apply(op);
@@ -254,6 +266,7 @@ export const SyncingEditor: React.FC<Props> = () => {
             return newOp;
         }
     }
+
 
     function inclusionTransform(o1: CustomOperation, o2: CustomOperation) {
         /*-1 = O1 is to the left of O2, so don't transform

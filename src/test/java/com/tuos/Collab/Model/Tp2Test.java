@@ -76,12 +76,11 @@ class Tp2Test {
 		Operation op3 = new Operation('c', 4, 1, 2, "ins");
 		Operation op4 = new Operation('a', 7, 2, 0, "ins");
 
-		
 		Operation op5 = new Operation('b', 8, 2, 4, "ins");
 		op5 = d.inclusionTransform(op5, op1);
 		op5 = d.inclusionTransform(op5, op2);
 		op5 = d.inclusionTransform(op5, op3);
-		
+
 		Operation op6 = new Operation('c', 9, 2, 5, "ins");
 		op6 = d.inclusionTransform(op6, op1);
 		op6 = d.inclusionTransform(op6, op2);
@@ -112,25 +111,21 @@ class Tp2Test {
 	@Test
 	void arbitraryTest() throws Exception {
 		/*
-		 {  type=insert_text, path=[0, 0], offset=9, text=a, siteID=1611920476497, stateID=0}
-			123456789a
-			{type=insert_text, path=[0, 0], offset=9, text=a, siteID=1611920476497, stateID=0}
-			------------------------------
-			{type=insert_text, path=[0, 0], offset=10, text=a, siteID=1611920476497, stateID=1}
-			123456789aa
-			{type=insert_text, path=[0, 0], offset=10, text=a, siteID=1611920476497, stateID=1}
-			------------------------------
-			{type=insert_text, path=[0, 0], offset=11, text=a, siteID=1611920476497, stateID=2}
-			123456789aaa
-			{type=insert_text, path=[0, 0], offset=11, text=a, siteID=1611920476497, stateID=2}
-			------------------------------
-			{type=remove_text, path=[0, 0], offset=7, text=8, siteID=1611920475690, stateID=2}
-			12345679aaa
-			{type=remove_text, path=[0, 0], offset=7, text=8, siteID=1611920475690, stateID=3}
-			------------------------------
-			{type=insert_text, path=[0, 0], offset=12, text=a, siteID=1611920476497, stateID=3}
-			12345679aaa
-			{type=insert_text, path=[0, 0], offset=13, text=a, siteID=1611920476497, stateID=3}
+		 * { type=insert_text, path=[0, 0], offset=9, text=a, siteID=1611920476497,
+		 * stateID=0} 123456789a {type=insert_text, path=[0, 0], offset=9, text=a,
+		 * siteID=1611920476497, stateID=0} ------------------------------
+		 * {type=insert_text, path=[0, 0], offset=10, text=a, siteID=1611920476497,
+		 * stateID=1} 123456789aa {type=insert_text, path=[0, 0], offset=10, text=a,
+		 * siteID=1611920476497, stateID=1} ------------------------------
+		 * {type=insert_text, path=[0, 0], offset=11, text=a, siteID=1611920476497,
+		 * stateID=2} 123456789aaa {type=insert_text, path=[0, 0], offset=11, text=a,
+		 * siteID=1611920476497, stateID=2} ------------------------------
+		 * {type=remove_text, path=[0, 0], offset=7, text=8, siteID=1611920475690,
+		 * stateID=2} 12345679aaa {type=remove_text, path=[0, 0], offset=7, text=8,
+		 * siteID=1611920475690, stateID=3} ------------------------------
+		 * {type=insert_text, path=[0, 0], offset=12, text=a, siteID=1611920476497,
+		 * stateID=3} 12345679aaa {type=insert_text, path=[0, 0], offset=13, text=a,
+		 * siteID=1611920476497, stateID=3}
 		 */
 
 		// char, position, siteid, stateid, op
@@ -140,7 +135,7 @@ class Tp2Test {
 		Operation op3 = new Operation('a', 11, 1, 2, "ins");
 		Operation op4 = new Operation('8', 7, 2, 2, "del");
 		Operation op5 = new Operation('a', 12, 1, 3, "ins");
-		
+
 		ArrayList<Operation> ops = new ArrayList<Operation>();
 
 		ops.add(op1);
@@ -148,7 +143,7 @@ class Tp2Test {
 		ops.add(op3);
 		ops.add(op4);
 		ops.add(op5);
-		
+
 		for (Operation o : ops) {
 			d.update(o);
 			System.out.println(d.text);
@@ -157,7 +152,87 @@ class Tp2Test {
 		String text = d.getText();
 //		System.out.println(d.getHistoryBuffer().toString());
 		assertEquals(text, "12345679aaaa");
-		
+
 	}
 
+	@Test
+	void insDelSamePosition() throws Exception {
+//		{type=insert_text, path=[0, 0], offset=4, text=a, siteID=1612286240958, stateID=0}
+//		1234a56789
+//		{type=insert_text, path=[0, 0], offset=4, text=a, siteID=1612286240958, stateID=0}
+//		------------------------------
+//		{type=insert_text, path=[0, 0], offset=5, text=b, siteID=1612286240958, stateID=1}
+//		1234ab56789
+//		{type=insert_text, path=[0, 0], offset=5, text=b, siteID=1612286240958, stateID=1}
+//		------------------------------
+//		{type=remove_text, path=[0, 0], offset=5, text=5, siteID=1612286233676, stateID=1}
+//		1234ab6789
+//		{type=remove_text, path=[0, 0], offset=6, text=5, siteID=1612286233676, stateID=2}
+//		------------------------------
+//		{type=insert_text, path=[0, 0], offset=6, text=c, siteID=1612286240958, stateID=2}
+//		1234acb6789
+//		{type=insert_text, path=[0, 0], offset=5, text=c, siteID=1612286240958, stateID=3}
+//		------------------------------
+//		{type=remove_text, path=[0, 0], offset=4, text=a, siteID=1612286233676, stateID=3}
+//		1234cb6789
+//		{type=remove_text, path=[0, 0], offset=4, text=a, siteID=1612286233676, stateID=4}
+//		------------------------------
+//		{type=remove_text, path=[0, 0], offset=3, text=4, siteID=1612286233676, stateID=5}
+//		123cb6789
+//		{type=remove_text, path=[0, 0], offset=3, text=4, siteID=1612286233676, stateID=5}
+		Document d = new Document("123456789");
+		// char character, int position, long siteId, int stateId, String type)
+		Operation op1 = new Operation('a', 4, 2, 0, "ins");
+		Operation op2 = new Operation('b', 5, 2, 1, "ins");
+		Operation op3 = new Operation('5', 5, 1, 1, "del");
+		Operation op4 = new Operation('c', 6, 2, 2, "ins");
+		Operation op5 = new Operation('a', 4, 1, 3, "del");
+		Operation op6 = new Operation('4', 3, 1, 5, "del");
+
+		ArrayList<Operation> ops = new ArrayList<Operation>();
+
+		ops.add(op1);
+		ops.add(op2);
+		ops.add(op3);
+		ops.add(op4);
+		ops.add(op5);
+		ops.add(op6);
+		
+		for (Operation o : ops) {
+			d.update(o);
+			System.out.println(d.text);
+		}
+
+		String text = d.getText();
+//		System.out.println(d.getHistoryBuffer().toString());
+		assertEquals(text, "123bc6789");
+	}
+
+	@Test
+	void concurrentSameDelete() throws Exception {
+//		{type=remove_text, path=[0, 0], offset=4, text=5, siteID=1612288127206, stateID=0}
+//		12346789
+//		{type=remove_text, path=[0, 0], offset=4, text=5, siteID=1612288127206, stateID=0}
+//		------------------------------
+//		{type=remove_text, path=[0, 0], offset=4, text=5, siteID=1612288129829, stateID=0}
+//		1236789
+//		{type=remove_text, path=[0, 0], offset=3, text=5, siteID=1612288129829, stateID=1}
+		Document d = new Document("123456789");
+		Operation op1 = new Operation('5', 4, 2, 0, "del");
+		Operation op2 = new Operation('5', 4, 1, 0, "del");
+		
+		ArrayList<Operation> ops = new ArrayList<Operation>();
+
+		ops.add(op1);
+		ops.add(op2);
+		
+		for (Operation o : ops) {
+			d.update(o);
+			System.out.println(d.text);
+		}
+
+		String text = d.getText();
+//		System.out.println(d.getHistoryBuffer().toString());
+		assertEquals(text, "12346789");
+	}
 }

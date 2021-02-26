@@ -35,7 +35,14 @@ public class OperationController {
 		int index = (int) payload.get("offset");
 		long siteID = (long) payload.get("siteID"); // TODO: change to UUID
 		int stateID = (int) payload.get("stateID");
-		String type = ((String) payload.get("type")).substring(0, 3); // TODO: other operations
+		String type = "";
+		if (((String) payload.get("type")).equals("insert_text")) {
+			type = "ins";
+		} else if (((String) payload.get("type")).equals("remove_text")) {
+			type = "del";
+		}
+		// String type = ((String) payload.get("type")).substring(0, 3); // TODO: other
+		// operations
 
 		// char, position, siteid, stateid, op
 		Operation op = new Operation(character, index, siteID, stateID, type);
@@ -47,13 +54,15 @@ public class OperationController {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+
 		payload.put("offset", op.getPosition());
 		payload.put("stateID", op.getStateId());
-		
+
 		messagingTemplate.convertAndSend("/topic/1", payload);
 		System.out.println(activeDocuments.get(1).getText());
 		System.out.println(payload.toString());
 		System.out.println("------------------------------");
+
 	}
 
 	@SubscribeMapping("file/{docId}/getDocument")
