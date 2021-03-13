@@ -1,48 +1,21 @@
-
-// Import React dependencies.
-import React from 'react'
-// Import the Slate editor factory.
-// import { createEditor } from 'slate'
-
-
-// // Import the Slate components and React plugin.
-// import { Slate, Editable, withReact } from 'slate-react'
-import { SyncingEditor } from './SyncingEditor'
-
-// const App = () => {
-//   const editor = useMemo(() => withReact(createEditor()), [])
-//   // Add the initial value when setting up our state.
-//   const [value, setValue] = useState([
-//     {
-//       type: 'paragraph',
-//       children: [{ text: 'A line of text in a paragraph.' }],
-//     },
-//   ])
-//   return (
-//     <Slate
-//       editor={editor}
-//       value={value}
-//       onChange={newValue => setValue(newValue as any)}
-//     >
-//       <Editable
-//         onKeyDown={event => {
-//           if (event.key === '&') {
-//             event.preventDefault();
-//             editor.insertText('and');
-//           }
-//         }} />
-//     </Slate>
-//   )
-// }
-
-
+import React, { useState } from 'react'
+import { SyncingEditor } from './components/SyncingEditor'
+import { HashRouter as Router, Switch, Route, Redirect } from 'react-router-dom';
+import Home from './components/Home'
+import PrivateRoute from './components/PrivateRoute';
+import Login from './components/Login';
 const App = () => {
-  let array = ["ab", "a/c", "ad"];
-  console.log(array.length);
   return (
-    <div>
-      <SyncingEditor />
-    </div>
+    <Router>
+      <Switch>
+        
+        <PrivateRoute path='/' exact component={Home} />
+        <Route path = '/login' component={Login}/>
+        <PrivateRoute path='/doc' component={SyncingEditor} />
+        <Route render={() => <Redirect to={{pathname: "/login"}} />} />
+      </Switch>
+
+    </Router>
   )
 }
 

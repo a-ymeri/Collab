@@ -1,238 +1,85 @@
 package com.tuos.Collab.Model;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
+import java.util.List;
 
-import org.junit.jupiter.api.Test;
+import com.tuos.Collab.document.Document;
+import com.tuos.Collab.operation.DocumentEditService;
+import com.tuos.Collab.operation.Operation;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnitRunner;
 
-class Tp2Test {
 
-	@Test
-	void tp2test() throws Exception {
-		// TP2 TEST, ARBITRARY TRANSFORMATION PATHS
-		Document d = new Document("abc");
-		Document d1 = new Document("abc");
-		Document d2 = new Document("abc");
+public class Tp2Test {
 
-		Operation op1 = new Operation('x', 2, 1, 1, "ins"); // char, position, siteid, stateid, op
-		Operation op2 = new Operation('y', 1, 2, 1, "ins");
-		Operation op3 = new Operation('b', 1, 3, 1, "del"); // b is irrelevant
-//		Operation op4 = new Operation('d', 4, 4, 1, "ins");
-//		Operation op5 = new Operation('r', 1, 5, 1, "ins");
-//		Operation op6 = new Operation('a', 5, 6, 1, "ins");
+    @InjectMocks
+    DocumentEditService documentEditService;
 
-		d.update(op1);
-		d.update(op2);
-		d.update(op3);
+//    @Mock
+//    EmployeeDao dao;
 
-		d1.update(op1);
-		d1.update(op2);
-		d1.update(op3);
+    @Before
+    public void init() {
+        MockitoAnnotations.initMocks(this);
+    }
 
-		d2.update(op1);
-		d2.update(op2);
-		d2.update(op3);
-		String text = d.getText();
-		String text1 = d1.getText();
-		String text2 = d2.getText();
-		assertEquals(text, "ayxc");
-		assertEquals(text1, "ayxc");
-		assertEquals(text2, "ayxc");
-	}
+    @Test
+    public void getAllEmployeesTest() throws Exception {
+        Document d = new Document("a", "document text2");
+        ArrayList<Operation> ops = new ArrayList<Operation>();
+        //public Operation(char character, int position, long siteId, int stateId, String type)
+        ops.add(new Operation('a', 3, 1614768999811l, 0, "ins"));
+        ops.add(new Operation('a', 11, 1614768999064l, 0, "ins"));
+        ops.add(new Operation('s', 4, 1614768999811l, 1, "ins"));
+        ops.add(new Operation('s', 13, 1614768999064l, 2, "ins"));
+        ops.add(new Operation('d', 5, 1614768999811l, 3, "ins"));
+        ops.add(new Operation('d', 15, 1614768999064l, 4, "ins"));
+        ops.add(new Operation('s', 4, 1614768999064l, 6, "del"));
+        ops.add(new Operation('a', 3, 1614768999064l, 7, "del"));
+        ops.add(new Operation('c', 2, 1614768999064l, 8, "del"));
+        ops.add(new Operation('d', 11, 1614768999811l, 8, "ins"));
+        ops.add(new Operation('o', 1, 1614768999064l, 9, "del"));
 
-	@Test
-	void basicTest() throws Exception {
-		Document d = new Document("ab");
-		Operation op1 = new Operation('x', 1, 1, 0, "ins"); // char, position, siteid, stateid, op
-		Operation op2 = new Operation(' ', 1, 2, 0, "ins");
-		d.update(op1);
-		d.update(op2);
-		String text = d.getText();
-		assertEquals(text, "ax b"); // decided by site ID
-	}
+        //when(dao.getEmployeeList()).thenReturn(list);
 
-	void test2() throws Exception {
-		Document d = new Document("ab");
-		Operation op1 = new Operation('x', 1, 1, 0, "del"); // char, position, siteid, stateid, op
-		Operation op2 = new Operation('a', 1, 2, 1, "del");
-//		Operation op3 = new Operation('a', 2, 3, 1, "ins");
-//		Operation op4 = new Operation('d', 4, 4, 1, "ins");
-//		Operation op5 = new Operation('r', 1, 5, 1, "ins");
-//		Operation op6 = new Operation('a', 5, 6, 1, "ins");
+        //test
+        for (Operation op : ops) {
+            documentEditService.update(1l, op);
+        }
 
-		d.update(op1);
-		d.update(op2);
-		String text = d.getText();
-		assertEquals(text, "a");
-	}
+        assertEquals(d.getText(), "a");
+        //verify(dao, times(1)).getEmployeeList();
+    }
 
-	@Test
-	void newTest() throws Exception {
-		Document d = new Document("123456789");
-		Operation op1 = new Operation('a', 2, 1, 0, "ins");
-		Operation op2 = new Operation('b', 3, 1, 1, "ins");
-		Operation op3 = new Operation('c', 4, 1, 2, "ins");
-		Operation op4 = new Operation('a', 7, 2, 0, "ins");
-
-		Operation op5 = new Operation('b', 8, 2, 4, "ins");
-		op5 = d.inclusionTransform(op5, op1);
-		op5 = d.inclusionTransform(op5, op2);
-		op5 = d.inclusionTransform(op5, op3);
-
-		Operation op6 = new Operation('c', 9, 2, 5, "ins");
-		op6 = d.inclusionTransform(op6, op1);
-		op6 = d.inclusionTransform(op6, op2);
-		op6 = d.inclusionTransform(op6, op3);
-
-		ArrayList<Operation> ops = new ArrayList<Operation>();
-
-		ops.add(op1);
-		ops.add(op2);
-		ops.add(op3);
-		ops.add(op4);
-		ops.add(op5);
-		ops.add(op6);
-
-		System.out.println(d.text);
-		for (Operation o : ops) {
-			System.out.println(o.getPosition());
-			d.update(o);
-			System.out.println(d.text);
-		}
-
-		String text = d.getText();
-		System.out.println(d.getHistoryBuffer().toString());
-		assertEquals(text, "12abc34567abc89");
-
-	}
-
-	@Test
-	void arbitraryTest() throws Exception {
-		/*
-		 * { type=insert_text, path=[0, 0], offset=9, text=a, siteID=1611920476497,
-		 * stateID=0} 123456789a {type=insert_text, path=[0, 0], offset=9, text=a,
-		 * siteID=1611920476497, stateID=0} ------------------------------
-		 * {type=insert_text, path=[0, 0], offset=10, text=a, siteID=1611920476497,
-		 * stateID=1} 123456789aa {type=insert_text, path=[0, 0], offset=10, text=a,
-		 * siteID=1611920476497, stateID=1} ------------------------------
-		 * {type=insert_text, path=[0, 0], offset=11, text=a, siteID=1611920476497,
-		 * stateID=2} 123456789aaa {type=insert_text, path=[0, 0], offset=11, text=a,
-		 * siteID=1611920476497, stateID=2} ------------------------------
-		 * {type=remove_text, path=[0, 0], offset=7, text=8, siteID=1611920475690,
-		 * stateID=2} 12345679aaa {type=remove_text, path=[0, 0], offset=7, text=8,
-		 * siteID=1611920475690, stateID=3} ------------------------------
-		 * {type=insert_text, path=[0, 0], offset=12, text=a, siteID=1611920476497,
-		 * stateID=3} 12345679aaa {type=insert_text, path=[0, 0], offset=13, text=a,
-		 * siteID=1611920476497, stateID=3}
-		 */
-
-		// char, position, siteid, stateid, op
-		Document d = new Document("123456789");
-		Operation op1 = new Operation('a', 9, 1, 0, "ins");
-		Operation op2 = new Operation('a', 10, 1, 1, "ins");
-		Operation op3 = new Operation('a', 11, 1, 2, "ins");
-		Operation op4 = new Operation('8', 7, 2, 2, "del");
-		Operation op5 = new Operation('a', 12, 1, 3, "ins");
-
-		ArrayList<Operation> ops = new ArrayList<Operation>();
-
-		ops.add(op1);
-		ops.add(op2);
-		ops.add(op3);
-		ops.add(op4);
-		ops.add(op5);
-
-		for (Operation o : ops) {
-			d.update(o);
-			System.out.println(d.text);
-		}
-
-		String text = d.getText();
-//		System.out.println(d.getHistoryBuffer().toString());
-		assertEquals(text, "12345679aaaa");
-
-	}
-
-	@Test
-	void insDelSamePosition() throws Exception {
-//		{type=insert_text, path=[0, 0], offset=4, text=a, siteID=1612286240958, stateID=0}
-//		1234a56789
-//		{type=insert_text, path=[0, 0], offset=4, text=a, siteID=1612286240958, stateID=0}
-//		------------------------------
-//		{type=insert_text, path=[0, 0], offset=5, text=b, siteID=1612286240958, stateID=1}
-//		1234ab56789
-//		{type=insert_text, path=[0, 0], offset=5, text=b, siteID=1612286240958, stateID=1}
-//		------------------------------
-//		{type=remove_text, path=[0, 0], offset=5, text=5, siteID=1612286233676, stateID=1}
-//		1234ab6789
-//		{type=remove_text, path=[0, 0], offset=6, text=5, siteID=1612286233676, stateID=2}
-//		------------------------------
-//		{type=insert_text, path=[0, 0], offset=6, text=c, siteID=1612286240958, stateID=2}
-//		1234acb6789
-//		{type=insert_text, path=[0, 0], offset=5, text=c, siteID=1612286240958, stateID=3}
-//		------------------------------
-//		{type=remove_text, path=[0, 0], offset=4, text=a, siteID=1612286233676, stateID=3}
-//		1234cb6789
-//		{type=remove_text, path=[0, 0], offset=4, text=a, siteID=1612286233676, stateID=4}
-//		------------------------------
-//		{type=remove_text, path=[0, 0], offset=3, text=4, siteID=1612286233676, stateID=5}
-//		123cb6789
-//		{type=remove_text, path=[0, 0], offset=3, text=4, siteID=1612286233676, stateID=5}
-		Document d = new Document("123456789");
-		// char character, int position, long siteId, int stateId, String type)
-		Operation op1 = new Operation('a', 4, 2, 0, "ins");
-		Operation op2 = new Operation('b', 5, 2, 1, "ins");
-		Operation op3 = new Operation('5', 5, 1, 1, "del");
-		Operation op4 = new Operation('c', 6, 2, 2, "ins");
-		Operation op5 = new Operation('a', 4, 1, 3, "del");
-		Operation op6 = new Operation('4', 3, 1, 5, "del");
-
-		ArrayList<Operation> ops = new ArrayList<Operation>();
-
-		ops.add(op1);
-		ops.add(op2);
-		ops.add(op3);
-		ops.add(op4);
-		ops.add(op5);
-		ops.add(op6);
-		
-		for (Operation o : ops) {
-			d.update(o);
-			System.out.println(d.text);
-		}
-
-		String text = d.getText();
-//		System.out.println(d.getHistoryBuffer().toString());
-		assertEquals(text, "123bc6789");
-	}
-
-	@Test
-	void concurrentSameDelete() throws Exception {
-//		{type=remove_text, path=[0, 0], offset=4, text=5, siteID=1612288127206, stateID=0}
-//		12346789
-//		{type=remove_text, path=[0, 0], offset=4, text=5, siteID=1612288127206, stateID=0}
-//		------------------------------
-//		{type=remove_text, path=[0, 0], offset=4, text=5, siteID=1612288129829, stateID=0}
-//		1236789
-//		{type=remove_text, path=[0, 0], offset=3, text=5, siteID=1612288129829, stateID=1}
-		Document d = new Document("123456789");
-		Operation op1 = new Operation('5', 4, 2, 0, "del");
-		Operation op2 = new Operation('5', 4, 1, 0, "del");
-		
-		ArrayList<Operation> ops = new ArrayList<Operation>();
-
-		ops.add(op1);
-		ops.add(op2);
-		
-		for (Operation o : ops) {
-			d.update(o);
-			System.out.println(d.text);
-		}
-
-		String text = d.getText();
-//		System.out.println(d.getHistoryBuffer().toString());
-		assertEquals(text, "12346789");
-	}
+//    @Test
+//    public void getEmployeeByIdTest()
+//    {
+//        when(dao.getEmployeeById(1)).thenReturn(new EmployeeVO(1,"Lokesh","Gupta","user@email.com"));
+//
+//        EmployeeVO emp = manager.getEmployeeById(1);
+//
+//        assertEquals("Lokesh", emp.getFirstName());
+//        assertEquals("Gupta", emp.getLastName());
+//        assertEquals("user@email.com", emp.getEmail());
+//    }
+//
+//    @Test
+//    public void createEmployeeTest()
+//    {
+//        EmployeeVO emp = new EmployeeVO(1,"Lokesh","Gupta","user@email.com");
+//
+//        manager.addEmployee(emp);
+//
+//        verify(dao, times(1)).addEmployee(emp);
+//    }
 }
