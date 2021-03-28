@@ -5,13 +5,11 @@ import com.tuos.Collab.operation.Operation;
 import com.tuos.Collab.operation.OperationKey;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 import javax.persistence.*;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Set;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
+import java.time.*;
 
 
 @Entity(name = "Document")
@@ -32,31 +30,46 @@ public class Document {
     String text;
 
     @ManyToOne
-    @JoinColumn(name="author_id", nullable = false)
+    @JoinColumn(name = "author_id", nullable = false)
     CollabUser author;
 
-    //Set<CollabUser> editors;
+    @Column(name = "date_created")
+    @Temporal(TemporalType.TIMESTAMP)
+    Calendar dateCreated;
+
+    @Column(name = "last_modified")
+    @Temporal(TemporalType.TIMESTAMP)
+    Calendar lastModified;
+
+    @ManyToMany(mappedBy = "editableDocuments")
+    Set<CollabUser> editors;
+
 
     //TODO: reconsider putting in child class
     @Transient
     ArrayList<Operation> historyBuffer = new ArrayList<Operation>();
     @Transient
-    HashMap<OperationKey, OperationKey> effectsRelation = new HashMap<OperationKey,OperationKey>();
+    HashMap<OperationKey, OperationKey> effectsRelation = new HashMap<OperationKey, OperationKey>();
     @Transient
     int state = 0;
 
-    //Date creationTime;
+
+
     //Date lastEdited;
 
     public Document(String name, String text) {
         this.name = name;
         this.text = text;
-        effectsRelation = new HashMap<OperationKey, OperationKey>();
-        historyBuffer = new ArrayList<Operation>();
-        state = 0;
+        dateCreated = updateTime();
     }
 
-    public int incrementState(){
+    public Calendar updateTime(){
+        ZonedDateTime zdt = ZonedDateTime.ofInstant(Instant.now().truncatedTo(ChronoUnit.SECONDS), ZoneId.of("UTC"));
+        lastModified = GregorianCalendar.from(zdt);
+        return lastModified;
+    }
+
+    public int incrementState() {
         return state++;
     }
 
@@ -68,7 +81,11 @@ public class Document {
         this.author = author;
     }
 
-    public String getAuthorName(){
+    public String getAuthorName() {
         return author.getName();
+    }
+
+    public boolean addEditor(CollabUser editor) {
+        return editors.add(editor);
     }
 }

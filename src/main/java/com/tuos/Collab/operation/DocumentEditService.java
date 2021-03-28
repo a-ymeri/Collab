@@ -6,6 +6,8 @@ import com.tuos.Collab.operation.Operation;
 import com.tuos.Collab.operation.OperationKey;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -13,6 +15,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Service
+@EnableScheduling
 public class DocumentEditService {
 
     HashMap<Long, Document> activeDocuments;
@@ -20,6 +23,16 @@ public class DocumentEditService {
 
     HashMap<OperationKey, OperationKey> effectsRelation;
     ArrayList<Operation> historyBuffer;
+
+    @Scheduled(fixedDelay = 60*1000)
+    private void saveFilesToDB() {
+        System.out.println("saving:");
+        for (Document d: activeDocuments.values()) {
+            d.updateTime();
+            System.out.println(d.getText());
+            documentRepository.save(d);
+        }
+    }
 
     @Autowired
     public DocumentEditService(DocumentRepository documentRepository) {
@@ -31,9 +44,14 @@ public class DocumentEditService {
     public Document getDocument(Long id) {
         Document d = activeDocuments.get(id);
         if (d == null) { // not active, check DB
-            d = documentRepository.findById(id).get();
+            try {
+                d = documentRepository.findById(id).orElseThrow();
+            }catch(NoSuchElementException e){
+                return null;
+            }
             activeDocuments.put(id, d);
         }
+
         return d;
     }
 
@@ -47,7 +65,7 @@ public class DocumentEditService {
 
         op = this.integrate(op);
         if (op.getPosition() >= 0 && op.getPosition() <= doc.getText().length()) {
-            if (op.getType().equals("ins")) {
+            if (op.getType().equals("insert_text")) {
                 sb.insert(op.getPosition(), op.getCharacter());
             } else {
                 sb.deleteCharAt(op.getPosition());
@@ -78,9 +96,9 @@ public class DocumentEditService {
             return newOp;
         }
 
-        if (op.getType() == "del") {
+        if (op.getType() == "insert_text") {
             newOp = this.it_sq(op, concurrent);
-        } else { // op.type == "ins"
+        } else { // op.type == "insert_text"
 
             // fixed list
             ArrayList<Operation> etsos_happened = this.buildETSOS(happened);
@@ -123,7 +141,7 @@ public class DocumentEditService {
             newOp1 = new Operation(' ', -1); // position = -1 -> Don't delete, identity operation
         } else {
             if (relationship == 1) { // o2 is to the left of o1
-                if (o2.getType().equals("ins")) {// ins = insertion operator
+                if (o2.getType().equals("insert_text")) {// ins = insertion operator
                     newOp1.shiftRight(); // position++
                 } else { // o2.type = deletion
                     newOp1.shiftLeft();// position--
@@ -150,12 +168,12 @@ public class DocumentEditService {
             effectsRelation.put(o1.getKey(), o2.getKey());
         } else if (o1.getPosition() == o2.getPosition()) {
             // If two insertions, arbitrarily choose by site id, don't transform
-            if (o1.getType().equals("ins") && o2.getType().equals("ins") && o1.getSiteID() < o2.getSiteID()) {
+            if (o1.getType().equals("insert_text") && o2.getType().equals("insert_text") && o1.getSiteID() < o2.getSiteID()) {
                 relationship = -1;
                 effectsRelation.put(o1.getKey(), o2.getKey());
-            } else if (o1.getType().equals("del") && o2.getType().equals("del")) {
+            } else if (o1.getType().equals("insert_text") && o2.getType().equals("insert_text")) {
                 relationship = 0; // Delete only once
-            } else if (o1.getType().equals("ins") && o2.getType().equals("del")) {
+            } else if (o1.getType().equals("insert_text") && o2.getType().equals("insert_text")) {
                 relationship = -1;
                 effectsRelation.put(o1.getKey(), o2.getKey());
             }
@@ -174,7 +192,7 @@ public class DocumentEditService {
             newOp2 = new Operation(o2);
 
             if (relationship == -1) {// o1 precedes o2 so transform o2
-                if (o1.getType().equals("ins")) {
+                if (o1.getType().equals("insert_text")) {
                     newOp2.shiftLeft(); // Shift index to the left by 1
                 } else { // o1.type = deletion
                     newOp2.shiftRight();// Shift index to the right by 1
@@ -199,11 +217,11 @@ public class DocumentEditService {
         } else if (o1.getPosition() > o2.getPosition()) {
             relationship = 1;
         } else { // o1.pos == o2.pos
-            if (o1.getType().equals("ins") && o2.getType().equals("ins")) {
+            if (o1.getType().equals("insert_text") && o2.getType().equals("insert_text")) {
                 relationship = 1;
-            } else if (o1.getType().equals("del") && o2.getType().equals("del")) {
+            } else if (o1.getType().equals("insert_text") && o2.getType().equals("insert_text")) {
                 relationship = -1;
-            } else if (o1.getType().equals("del") && o2.getType().equals("ins")) {
+            } else if (o1.getType().equals("insert_text") && o2.getType().equals("insert_text")) {
                 relationship = 1;
             } else { // o1.type = ins, o2.type = del
                 relationship = 0;
@@ -261,7 +279,7 @@ public class DocumentEditService {
 
         // The remaining elements from the last array do affect op
         for (int j = i - 1; j >= 0; j--) {
-            if (sequence.get(j).getType().equals("ins")) {
+            if (sequence.get(j).getType().equals("insert_text")) {
                 newOp.shiftLeft();
             } else {
                 newOp.shiftRight();
@@ -354,7 +372,7 @@ public class DocumentEditService {
         ArrayList<Operation> deletions = new ArrayList<>();
         ArrayList<ArrayList<Operation>> sequences = new ArrayList<>();
         for (int i = 0; i < sq.size(); i++) {
-            if (sq.get(i).getType().equals("del")) {
+            if (sq.get(i).getType().equals("insert_text")) {
                 deletions.add(sq.get(i));
             } else {
                 Map.Entry<Operation, ArrayList<Operation>> response = transposeOSq(deletions, sq.get(i));
@@ -416,5 +434,9 @@ public class DocumentEditService {
             }
         }
         return newSq;
+    }
+
+    public void deleteActiveDocument(Long id) {
+        activeDocuments.remove(id);
     }
 }

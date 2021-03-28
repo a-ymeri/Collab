@@ -33,7 +33,7 @@ public class JwtUsernameAndPasswordAuthenticationFilter extends UsernamePassword
             UsernameAndPasswordAuthenticationRequest authenticationRequest = new ObjectMapper().readValue(request.getInputStream(),
                     UsernameAndPasswordAuthenticationRequest.class);
             Authentication authentication = new UsernamePasswordAuthenticationToken(
-                    authenticationRequest.getUsername(),
+                    authenticationRequest.getEmail(),
                     authenticationRequest.getPassword()
             );
 
@@ -55,6 +55,9 @@ public class JwtUsernameAndPasswordAuthenticationFilter extends UsernamePassword
         String token = Jwts.builder().setSubject(((CollabUser)authResult.getPrincipal()).getEmail()).claim("authorities",authResult.getAuthorities())
                 .setIssuedAt(new Date()).setExpiration(java.sql.Date.valueOf(LocalDate.now().plusDays(1))).signWith(Keys.hmacShaKeyFor(key.getBytes())).compact();
         response.addHeader("Authorization", "Bearer " + token);
+        //TODO: SECURITY FLAW, CHANGE * TO DESIRED URL
+        //response.addHeader("Access-Control-Allow-Origin", "*");
+        //response.addHeader("Access-Control-Allow-Credentials", "true");
         response.getWriter().write("Bearer "+token);
 //        super.successfulAuthentication(request, response, chain, authResult);
     }

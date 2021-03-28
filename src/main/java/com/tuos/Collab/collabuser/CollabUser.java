@@ -33,6 +33,14 @@ public class CollabUser implements UserDetails {
     @Column(name = "password")
     private String password;
 
+    @ManyToMany
+    @JoinTable(
+            name = "editable_document",
+            joinColumns = @JoinColumn(name="collab_user_id"),
+            inverseJoinColumns = @JoinColumn(name = "document_id")
+    )
+    Set<Document> editableDocuments;
+
     @OneToMany(mappedBy = "author")
     private Set<Document> createdDocuments;
 
@@ -128,5 +136,9 @@ public class CollabUser implements UserDetails {
     @Override
     public boolean isEnabled() {
         return true;
+    }
+
+    public void addEditableDocument(Document document) {
+        editableDocuments.add(document);
     }
 }

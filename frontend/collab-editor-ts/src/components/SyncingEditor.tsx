@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { createEditor, InsertTextOperation, Operation } from 'slate'
+import { createEditor, InsertNodeOperation, InsertTextOperation, Operation } from 'slate'
 import { Slate, Editable, withReact } from 'slate-react'
 
 import * as Stomp from "stompjs";
 import SockJS from "sockjs-client";
 import { RemoveTextOperation } from 'slate';
+import { Cookies } from 'react-cookie';
+import { Console } from 'node:console';
 interface Props { }
 
 
@@ -36,9 +38,11 @@ let concurrentChanges: CustomOperation[] = []; //List of changes to be sent, una
 
 let received: CustomOperation[] = [];
 export const SyncingEditor: React.FC<Props> = () => {
-
-    const socket = useRef(new SockJS('http://localhost:8080/collab-editor'))
+    const cookies = new Cookies();
+    const socket = useRef(new SockJS('http://localhost:8080/collab-editor?access_token=' + cookies.get("auth")))
     const stompClient = useRef(Stomp.over(socket.current));
+    //stompClient.current.debug = () => { };
+
 
     const editor = useMemo(() => withReact(createEditor()), [])
 
@@ -54,11 +58,17 @@ export const SyncingEditor: React.FC<Props> = () => {
         },
     ])
 
+    const [text, setText] = useState<String[]>([]);
+
+
     useEffect(() => {
         if (!stompClient.current.connected) {
-            stompClient.current.connect({}, function () {
+            let jwt: String = cookies.get('auth');
+            jwt = jwt.substr(7);
+            stompClient.current.connect({ auth: jwt }, function () {
                 let id = window.location.href.split('/').pop();
-                stompClient.current.subscribe('/app/file/'+id, function (data: Stomp.Message) {
+
+                stompClient.current.subscribe('/app/file/' + id, function (data: Stomp.Message) {
                     let response = JSON.parse(data.body).body;
 
                     setValue([
@@ -67,8 +77,11 @@ export const SyncingEditor: React.FC<Props> = () => {
                             children: [{ text: response.text }]
                         },
                     ]);
+
                     stateID = Number(response.state);
+                    setText(toRichText(response.text));
                 });
+
 
                 stompClient.current.subscribe('/topic/1', function (data: any) {
                     let op: CustomOperation = JSON.parse(data.body);
@@ -103,7 +116,7 @@ export const SyncingEditor: React.FC<Props> = () => {
             toSendBuffer.forEach((operation, index) => {
                 toSendBuffer[index].stateID++;
             })
-            
+
             if (op.offset >= 0) {
                 remote.current = true;
 
@@ -116,7 +129,7 @@ export const SyncingEditor: React.FC<Props> = () => {
             }
         } else {
             //Ack received
-            toSendBuffer.forEach((operation, index) => {
+            toSendBuffer.forEach((op, index) => {
                 toSendBuffer[index].stateID++;
             })
             toSendBuffer.splice(0, 1);
@@ -130,70 +143,145 @@ export const SyncingEditor: React.FC<Props> = () => {
         }
     }
 
-    useEffect(() => {
-        console.log(value[0].children[0].text);
-    }, [value])
-
     function sendCharacter(operation: Operation) {
         //stompClient.send("/app/sendcharacter", {}, JSON.stringify({type: operation.type, character: operation.text, index: operation.offset, id: ID, stateID: stateID}));
         if (!sending.current) {
             sending.current = true;
 
-            setTimeout(() => {
-                stompClient.current.send("/app/sendcharacter", {}, JSON.stringify(operation))
-            }, 0); //was setTimeout TODO: remove
+
+            stompClient.current.send("/app/sendcharacter", {}, JSON.stringify(operation))
+            //was setTimeout TODO: remove
 
         }
     }
 
-    return (
-        <div>
-            <Slate
-                editor={editor}
-                value={value}
-                onChange={newValue => {
-                    setValue(newValue as any);
+    function toRichText(text: string) {
+        let a = Date.now();
+        if (!text) {
+            text = "";
+        }
+        let newText: string = "";
+        let start = 0;
+        let inside = false;
+        let end = 0;
+        let array = [];
 
-                    // const ops = newValue.operations.filter()
-                    const ops = editor.operations.filter(o => {
-                        if (o) { //not undefined
-                            return (
-                                o.type === "remove_text" ||
-                                o.type === "insert_text"
-                            );
-                        }
-                        return false;
-                    })//.map((o) => ({ ...o, data: { id: ID, stateID: stateID } })); // instead of one, get some unique identifier
-
-                    ops.forEach((op) => {
-                        if (!op.siteID) {
-                            op.siteID = ID;
-                            op.stateID = stateID;
-                            toSendBuffer.push(op as CustomOperation);
-                            concurrentChanges.push(op as CustomOperation);
-                            console.log("Local change:" + value[0].children[0].text)
-                            console.log("offset: " + op.offset + "| character: " + op.text + "| stateID: " + op.stateID)
-                            //TODO: uncomment
-                            sendCharacter(op);
-                        }
-
-                    });
-                }}
-            >
-                <Editable
-                    onKeyDown={event => {
-
-                    }} />
-            </Slate>
-            <button onClick={() => {
-                if (toSendBuffer.length > 0)
-                    sendCharacter(toSendBuffer[0] as CustomOperation)
+        for (let i = 0; i < text.length; i++) {
+            if (!inside && text[i] === '&') {
+                array.push(text.substr(start, i - start));
+                start = i + 1;
+                inside = true;
+            } else if (inside && text[i] === '&') {
+                array.push(text.substr(start, i - start) as any);
+                // array[1].bolded = "true";
+                start = i + 1;
+                inside = false;
+            } else {
+                newText += text[i];
             }
-            }>Send</button>
-            <button onClick={() => {
-                if (received.length > 0)
-                    onReceived(received.splice(0, 1)[0])
-            }}>Receive</button>
+
+        }
+        array.push(text.substr(start, text.length - start));
+        array.forEach((el) => console.log(el));
+
+        let b = Date.now().toPrecision();
+        console.log(a);
+        console.log(b);
+        return array;
+
+    }
+    function destructureOperation(rawOp: any) {
+        let text = rawOp.text;
+        let state = stateID;
+        let op;
+        for (let i = 0; i < text.length; i++) {
+            op = copy(rawOp);       
+            op.text = text.charAt(i);
+            op.siteID = ID;
+            op.stateID = state;
+            if (op.type === 'insert_text') {
+                op.offset += i;
+            }
+            toSendBuffer.push(op as CustomOperation);
+            concurrentChanges.push(op as CustomOperation);
+            // console.log("Local change:" + value[0].children[0].text)
+            // console.log("offset: " + op.offset + "| character: " + op.text + "| stateID: " + op.stateID)
+            sendCharacter(op);
+        }
+    }
+
+    function insertNode(op: any, newProperties: any) {
+        let text = op.node.text;
+        op.offset = newProperties.anchor.offset;
+        op.type = 'insert_text';
+        op.text = op.node.text;
+        destructureOperation(op)
+    }
+
+    return (
+
+
+        <div className="container-fluid h-100 vh" style={{ position: "absolute" }} >
+            <div className="row justify-content-center h-100">
+                <div className="col-md-6 padding-0" style={{ backgroundColor: "white" }}>
+
+                    <Slate
+
+                        editor={editor}
+                        value={value}
+                        onChange={newValue => {
+                            setValue(newValue as any);
+
+                            // const ops = newValue.operations.filter()
+                            console.log(editor.selection);
+                            const ops = editor.operations.filter(o => {
+                                console.log(o);
+                                if (o) { //not undefined
+
+                                    return (
+                                        o.type === 'insert_text' || o.type === 'remove_text' || o.type === 'insert_node' || o.type === 'set_selection'
+                                        // o.type === "insert_text"
+                                    );
+
+                                }
+
+                                return false;
+                            })//.map((o) => ({ ...o, data: { id: ID, stateID: stateID } })); // instead of one, get some unique identifier
+
+                            //
+                            let currentSelection: any;
+                            ops.forEach((op: any, index, ops) => { //(InsertTextOperation | RemoveTextOperation | InsertNodeOperation)) => {
+                                if (!op.siteID) { //foreign operation
+                                    switch (op.type) {
+                                        case 'set_selection': currentSelection = op; break;
+                                        case 'insert_text': destructureOperation(op); break;
+                                        case 'remove_text': destructureOperation(op); break;
+                                        case 'insert_node': insertNode(op, currentSelection.newProperties); break;
+                                    }
+                                }
+                            });
+                        }}
+                    >
+
+                        <Editable
+                            style={{ height: "100%", padding: "10%" }}
+                            onKeyDown={event => {
+
+                            }} />
+                    </Slate>
+                </div>
+                <span id="result">
+
+                    {
+                        text.map((el) =>
+                            <span>
+                                {el} <br/>
+                            </span>
+                        )
+                    }
+                </span>
+            </div>
+
         </div>
     )
 
@@ -203,20 +291,20 @@ export const SyncingEditor: React.FC<Props> = () => {
          * 0 = Same position, used for double deletions
          * 1 = O1 is to the right of O2, transform*/
 
-        //TODO: Uncomment
         let relationship: number = get_ER_IT(o1, o2);
 
         // Clone o1 into newOp1 so we can modify newOp1 without affecting o1
         let newOp1: CustomOperation = copy(o1);
+
 
         if (relationship === 0) { // Same position, double deletion
             newOp1.offset = -1;// position = -1 -> Don't delete, identity operation
         } else {
             if (relationship === 1) { // o2 is to the left of o1
                 if (o2.type === "insert_text") {// ins = insertion operator
-                    newOp1.offset++; // position++
+                    newOp1.offset++;
                 } else { // o2.type = deletion
-                    newOp1.offset--;// position--
+                    newOp1.offset--;
                 }
             }
         }
@@ -260,12 +348,12 @@ export const SyncingEditor: React.FC<Props> = () => {
 
 
 
-  /*
-    TRANSFORMATION FUNCTIONS
-    MAYBE I PUT THESE IN ANOTHER FILE
-    MAYBE I DON'T
-    WILL SEE
-    */
+    /*
+      TRANSFORMATION FUNCTIONS
+      MAYBE I PUT THESE IN ANOTHER FILE
+      MAYBE I DON'T
+      WILL SEE
+      */
 
 
     //TODO: Re-evaluate the need for happened, etsoshappened etc.

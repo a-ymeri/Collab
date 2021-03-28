@@ -8,7 +8,13 @@ import TableHead from '@material-ui/core/TableHead';
 import TableRow from '@material-ui/core/TableRow';
 import Paper from '@material-ui/core/Paper';
 import { DocumentQuery } from '../customTypes';
-import {Link} from 'react-router-dom'
+import { Link } from 'react-router-dom'
+import { faTrash, faUserPlus } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import FormDialog from './FormDialog';
+import ConfirmDialog from './ConfirmDialog';
+// import axios from 'axios';
+// import { Cookies } from 'react-cookie'
 const useStyles = makeStyles({
   table: {
     minWidth: 650,
@@ -24,14 +30,15 @@ let rows: DocumentQuery[] = [
 ];
 
 interface Props {
-  data: DocumentQuery[]
+  data: DocumentQuery[],
+  deleteFunction: Function,
+  addEditorFunction: Function
 }
 
-export default function BasicTable({ data }: Props) {
+export default function BasicTable({ data, deleteFunction, addEditorFunction }: Props) {
   const classes = useStyles();
-  console.log(data.length);
 
-  console.log(data);
+  // const cookies = new Cookies();
   rows = data ? data : [];
 
 
@@ -40,27 +47,37 @@ export default function BasicTable({ data }: Props) {
       <Table className={classes.table} aria-label="simple table">
         <TableHead>
           <TableRow>
-            <TableCell align="right">Name</TableCell>
-            <TableCell align="right">Owner</TableCell>
-            <TableCell align="right">Last Modified</TableCell>
-            <TableCell align="right">File Size</TableCell>
+            <TableCell align="left">Name</TableCell>
+            <TableCell align="left">Owner</TableCell>
+            <TableCell align="left">Last Modified</TableCell>
+            <TableCell align="left">Actions</TableCell>
+            {/* <TableCell align="right">File Size</TableCell> */}
           </TableRow>
         </TableHead>
         <TableBody>
           {rows.map((row: DocumentQuery, index) => (
-            
-              <TableRow key={row.name + index}>
-                
-                {/* <TableCell component="th" scope="row">
+
+            <TableRow key={row.name + index}>
+
+              {/* <TableCell component="th" scope="row">
                 {row.name}
               </TableCell> */}
-                <TableCell align="right"><Link to={"/doc/"+row.id}>{row.name} </Link></TableCell>
-                <TableCell align="right">{row.owner}</TableCell>
-                <TableCell align="right">{row.last_modified}</TableCell>
-                <TableCell align="right">{row.file_size}</TableCell>
-                
-              </TableRow>
-            
+              <TableCell align="left"><Link to={"/doc/" + row.id}>{row.name} </Link></TableCell>
+              <TableCell align="left">{row.owner}</TableCell>
+              <TableCell align="left">{row.lastModified}</TableCell>
+              <TableCell align="left">
+                {/* <FontAwesomeIcon icon={faTrash} onClick={() => deleteFunction(row.id)}
+                  style={{ cursor: "pointer", color: "red" }} /> */}
+
+
+                <ConfirmDialog dialogContextText ={"Are you sure you want to delete this file?"} faButton={faTrash} onSubmitFunction={() => deleteFunction(row.id)}/>
+                {/* FORM DIALOG WITH AN FA BUTTON IN IT, THAT WHEN CLICKED AND SUBMITTED WILL ADD A USER */}
+                <FormDialog faButton={faUserPlus} onSubmitFunction={(email: string) => addEditorFunction(email, row.id)} />
+              </TableCell>
+              {/* <TableCell align="right">{row.file_size}</TableCell> */}
+
+            </TableRow>
+
           ))}
         </TableBody>
       </Table>

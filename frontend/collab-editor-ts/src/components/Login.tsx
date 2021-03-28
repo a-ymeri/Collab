@@ -1,9 +1,10 @@
 import axios from 'axios';
-import 'bootstrap/dist/css/bootstrap.min.css';
 import '../style.css'
 // import { useEffect, useState } from 'react';
 // import { Redirect } from 'react-router';
-import {Cookies} from 'react-cookie';
+import { Cookies } from 'react-cookie';
+import React from 'react';
+import Form from './Form';
 const App = () => {
     const cookies = new Cookies();
     // axios.post('http://localhost:8080/login', user, {
@@ -29,65 +30,61 @@ const App = () => {
     return (
         <div>
             <div className="container">
-                <form className="form-signin" onSubmit={(e) => { e.preventDefault(); submitData() }} >
+                <div className="row">
 
-                    <h2 className="form-signin-heading">Please sign in</h2>
+                    <div className="col-md-6">
+                        <Form propFields={["Email", "Password"]} onSubmitFunction={login} formName={"Sign in"} />
+                    </div>
 
-                    <p>
-                        <label htmlFor="username" className="sr-only">Username</label>
-                        <input type="text" id="username" name="username" className="form-control" placeholder="Username" required />
-                    </p>
+                    <div className="col-md-6">
+                        <Form propFields={["Username", "Email", "Password"]} onSubmitFunction={register} formName={"Sign up"} />
+                    </div>
 
-                    <p>
-                        <label htmlFor="password" className="sr-only">Password</label>
-                        <input type="password" id="password" name="password" className="form-control" placeholder="Password" required />
-                    </p>
-
-                    <button className="btn btn-lg btn-primary btn-block" type="submit">Sign in</button>
-
-                </form>
+                </div>
             </div>
 
         </div>
     )
 
-    function submitData() {
+    function login(inputs: string[]) {
         let user = {
-            username : (document.getElementById("username") as HTMLInputElement).value,
-            password : (document.getElementById("password") as HTMLInputElement).value
+            email: inputs[0],
+            password: inputs[1]
         }
-        
+
         axios.post("http://localhost:8080/login", user).then((response) => {
-                console.log("auth success")
-                console.log(response);
-                cookies.set('auth', response.data,{maxAge:30*60});//mins*seconds
-                //window.location.replace('/')
-            }).catch((error)=>{
-                //console.log(error.response.status) // 401
-                // console.log(error.response.data.error) //Please Authenticate or whatever returned from server
-                if(error.response.status===401){
-                    //redirect to login
-                    console.log("redirect to login with bad creds")
-                }
-            });
-        // axios({
-        //     method: "post",
-        //     url: 'http://localhost:8080/login',
-        //     data: bodyFormData,
-        //     headers: { "Content-Type": "multipart/form-data" }
-        // }).then((response) => {
-        //     console.log("auth success")
-        //     console.log(response);
-        //     //cookies.set('auth', true,{maxAge:30*60});//mins*seconds
-        //     //window.location.replace('/')
-        // }).catch((error)=>{
-        //     //console.log(error.response.status) // 401
-        //     // console.log(error.response.data.error) //Please Authenticate or whatever returned from server
-        //     if(error.response.status===401){
-        //         //redirect to login
-        //         console.log("redirect to login with bad creds")
-        //     }
-        // });
+            console.log("auth success")
+            console.log(response);
+            cookies.set('auth', response.data, { maxAge: 30 * 60 });//mins*seconds
+            cookies.set('email', user.email)
+            window.location.replace('/')
+        }).catch((error) => {
+            console.log(error.response.data);
+            alert("Error " + error.response.status + ": " + error.response.data);
+            if (error.response.status === 401) {
+                //alert(error.response);
+                console.log("redirect to login with bad creds")
+            }
+        });
+
+    }
+
+    function register(inputs: string[]) {
+        let user = {
+            username: inputs[0],
+            email: inputs[1],
+            password: inputs[2]
+        }
+
+        axios.post("http://localhost:8080/api/register", user).then(() => {
+            login([user.email, user.password]);
+        }).catch((error) => {
+            console.log(error.response.data);
+            alert("Error " + error.response.status + ": " + error.response.data);
+            // if (error.response.status === 401) {
+            //     console.log("redirect to login with bad creds")
+            // }
+        });
     }
 }
 

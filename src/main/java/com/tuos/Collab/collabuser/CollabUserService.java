@@ -4,6 +4,7 @@ package com.tuos.Collab.collabuser;
 
 import com.tuos.Collab.collabuser.CollabUserRepository;
 import lombok.AllArgsConstructor;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -20,7 +21,6 @@ public class CollabUserService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        System.out.println(email);
         return collabUserRepository.findByEmail(email).orElseThrow(() -> new UsernameNotFoundException(""));
     }
 
@@ -46,6 +46,10 @@ public class CollabUserService implements UserDetailsService {
         return "it works";
     }
 
+    public String update(String name, String email){
+        collabUserRepository.changeUsername(name,email);
+        return "";
+    }
     public String delete(Long id) {
         collabUserRepository.deleteById(id);
         return "User deleted";

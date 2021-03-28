@@ -2,6 +2,11 @@ body {
     padding-top: 40px;
     padding-bottom: 40px;
     background-color: #eee;
+
+  }
+  
+  body, html {
+    height: 100%;
   }
   
   .form-signin {
@@ -37,5 +42,7 @@ body {
     border-top-right-radius: 0;
   }
 
-
+  .padding-0{
+    padding: 0 !important;
+  }
   
