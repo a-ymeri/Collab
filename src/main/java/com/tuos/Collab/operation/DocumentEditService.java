@@ -2,14 +2,16 @@ package com.tuos.Collab.operation;
 
 import com.tuos.Collab.document.Document;
 import com.tuos.Collab.document.DocumentRepository;
-import com.tuos.Collab.operation.Operation;
-import com.tuos.Collab.operation.OperationKey;
-import lombok.AllArgsConstructor;
+import com.tuos.Collab.styletree.Element;
+import com.tuos.Collab.styletree.Leaf;
+import com.tuos.Collab.styletree.StyleTree;
+import org.mockito.internal.matchers.Null;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.lang.reflect.Array;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -24,12 +26,36 @@ public class DocumentEditService {
     HashMap<OperationKey, OperationKey> effectsRelation;
     ArrayList<Operation> historyBuffer;
 
-    @Scheduled(fixedDelay = 60*1000)
+    @Scheduled(fixedDelay = 60 * 1000)
     private void saveFilesToDB() {
         System.out.println("saving:");
-        for (Document d: activeDocuments.values()) {
+        for (Document d : activeDocuments.values()) {
             d.updateTime();
-            System.out.println(d.getText());
+            StringBuilder text = new StringBuilder();
+            for (String node : d.getTextArray()) {
+                text.append(node);
+            }
+            StyleTree tree = d.getStyleTree();
+            int cursor = 0;
+            for (Element el : tree.getElements()) {
+                text.insert(cursor, "<p>");
+                cursor += 3;
+                for (Leaf le : el.getLeaves()) {
+                    StringBuilder tag = new StringBuilder(le.getTypesAsString());
+
+                    tag.insert(0,"<");
+                    tag.append(">");
+                    text.insert(cursor, tag);
+                    cursor += tag.length();
+                    cursor += le.getSize();
+                    tag.insert(1,"/");
+                    text.insert(cursor, tag);
+                    cursor += tag.length();
+                }
+                text.insert(cursor, "</p>");
+                cursor += 4;
+            }
+            d.setText(text.toString());
             documentRepository.save(d);
         }
     }
@@ -46,7 +72,8 @@ public class DocumentEditService {
         if (d == null) { // not active, check DB
             try {
                 d = documentRepository.findById(id).orElseThrow();
-            }catch(NoSuchElementException e){
+                d.generateTree(d.getText());
+            } catch (NoSuchElementException e) {
                 return null;
             }
             activeDocuments.put(id, d);
@@ -55,27 +82,61 @@ public class DocumentEditService {
         return d;
     }
 
+    public synchronized StyleOperationDTO addTag(Long docID, StyleOperationDTO styleTag) throws Exception {
+
+        Document doc = getDocument(docID);
+        System.out.println(doc.getTextArray().toString());
+        effectsRelation = doc.getEffectsRelation();
+        historyBuffer = doc.getHistoryBuffer();
+
+
+        Operation startingTag =  new Operation(styleTag.getStartingTag());
+        Operation endingTag = new Operation(styleTag.getEndingTag());
+        startingTag = integrate(startingTag);
+        endingTag = integrate(endingTag);
+
+        boolean newTag = startingTag.getType().equals("insert_text");
+        doc.getStyleTree().update(startingTag.getPosition(),endingTag.getPosition(),startingTag.getCharacter(), newTag);
+//
+//        el.setSize(el.getSize() + 2);
+//        leaf.setSize(leaf.getSize() + 2);
+        styleTag.setOffset(startingTag.getPosition());
+        styleTag.setEndOffset(endingTag.getPosition());
+        return styleTag;
+    }
+
+
     public synchronized Operation update(Long docID, Operation op) throws Exception {
 
         Document doc = getDocument(docID);
-        System.out.println(doc.getText());
+        System.out.println(doc.getTextArray().toString());
         effectsRelation = doc.getEffectsRelation();
         historyBuffer = doc.getHistoryBuffer();
-        StringBuilder sb = new StringBuilder(doc.getText());
+
+        List<String> textArray = doc.getTextArray();
 
         op = this.integrate(op);
-        if (op.getPosition() >= 0 && op.getPosition() <= doc.getText().length()) {
+
+        int[] path = doc.getStyleTree().findPath(op.getPosition());
+        Element el = doc.getStyleTree().get(path[0]);
+        Leaf leaf = el.getLeaf(path[1]);
+
+        if (op.getPosition() >= 0 && op.getPosition() <= textArray.size()) {
             if (op.getType().equals("insert_text")) {
-                sb.insert(op.getPosition(), op.getCharacter());
+                textArray.add(op.getPosition(), op.getCharacter());
+                leaf.setSize(leaf.getSize() + 1);
+                el.setSize(el.getSize() + 1);
             } else {
-                sb.deleteCharAt(op.getPosition());
+                textArray.remove(op.getPosition());
+                leaf.setSize(leaf.getSize() - 1);
+                el.setSize(el.getSize() - 1);
             }
             op.setStateID(doc.getState());
             doc.incrementState();
             doc.getHistoryBuffer().add(op);
-            doc.setText(sb.toString());
+            //doc.setText(sb.toString());
         }
-        System.out.println(doc.getText());
+        System.out.println(doc.getTextArray().toString());
         return op;
     }
 
@@ -127,6 +188,7 @@ public class DocumentEditService {
         return newOp;
     }
 
+
     // Transform an operation o1 against o2 such that the effect of o2 is included
     public Operation inclusionTransform(Operation o1, Operation o2) {
         /*-1 = O1 is to the left of O2, so don't transform
@@ -138,7 +200,7 @@ public class DocumentEditService {
         Operation newOp1 = new Operation(o1);
 
         if (relationship == 0) { // Same position, double deletion
-            newOp1 = new Operation(' ', -1); // position = -1 -> Don't delete, identity operation
+            newOp1 = new Operation(" ", -1); // position = -1 -> Don't delete, identity operation
         } else {
             if (relationship == 1) { // o2 is to the left of o1
                 if (o2.getType().equals("insert_text")) {// ins = insertion operator
@@ -186,7 +248,7 @@ public class DocumentEditService {
         int relationship = get_ER_ET(o1, o2);
         Operation newOp2 = null;
         if (relationship == 0) {
-            newOp2 = new Operation(' ', -1);
+            newOp2 = new Operation(" ", -1);
             throw new Exception("HALT, DOUBLE DELETION");
         } else {
             newOp2 = new Operation(o2);
@@ -439,4 +501,6 @@ public class DocumentEditService {
     public void deleteActiveDocument(Long id) {
         activeDocuments.remove(id);
     }
+
+
 }

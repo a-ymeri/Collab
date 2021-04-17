@@ -9,7 +9,7 @@ public class OperationDTO {
     String type;
     int[] path;
     int offset;
-    char text;
+    String text;
     long siteID;
     int stateID;
 

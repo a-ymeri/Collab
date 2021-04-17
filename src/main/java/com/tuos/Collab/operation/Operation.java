@@ -2,21 +2,21 @@ package com.tuos.Collab.operation;
 
 public class Operation {
 
-	private char character;
+	private String character;
 	private int position;
 	private long siteID;
 	private String type;
 	private int stateID;
 	
 	//constructor for insertion operations
-	public Operation(char character, long siteId, int position, String type) {
+	public Operation(String character, long siteId, int position, String type) {
 		this.character = character;
 		this.siteID = siteId;
 		this.position = position;
 		this.type = type;
 	}
 	
-	public Operation(char character, int position, long siteId, int stateId, String type) {
+	public Operation(String character, int position, long siteId, int stateId, String type) {
 		this.character = character;
 		this.siteID = siteId;
 		this.position = position;
@@ -25,7 +25,7 @@ public class Operation {
 	}
 	
 	//constructor for identity operations
-	public Operation(char character, int position) {
+	public Operation(String character, int position) {
 		this.character = character;
 		this.position = position;
 		
@@ -64,7 +64,7 @@ public class Operation {
 	}
 	
 
-	public char getCharacter() {
+	public String getCharacter() {
 		return character;
 	}
 

@@ -6,6 +6,7 @@ import PrivateRoute from './components/PrivateRoute';
 import Login from './components/Login';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import '../src/style.css'
+import RichTextExample from './components/RichText';
 // import "bootstrap/dist/css/bootstrap.css";
 
 const App = () => {
@@ -16,7 +17,9 @@ const App = () => {
         <PrivateRoute path='/' exact component={Home} />
         <Route path = '/login' component={Login}/>
         <PrivateRoute path='/doc' component={SyncingEditor} />
+        <Route path='/test' exact component={RichTextExample} />
         <Route render={() => <Redirect to={{pathname: "/login"}} />} />
+
       </Switch>
 
     </Router>

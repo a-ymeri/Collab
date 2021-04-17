@@ -24,7 +24,7 @@ public class DocumentController {
     @PostMapping("/api/doc")
     public ResponseEntity<DocumentDTO> create(@RequestBody HashMap<String, String> request, Principal principal){
         String docName = request.get("docId");
-        Document document = new Document(docName, "");
+        Document document = new Document(docName);
 
         DocumentDTO doc = null;
         try{

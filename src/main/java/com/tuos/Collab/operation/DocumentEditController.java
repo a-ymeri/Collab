@@ -36,24 +36,11 @@ public class DocumentEditController {
 
         // TODO: FIX TYPES, SANITIZE INPUT
         // TODO: Make an object for payload so i can cleanup the next 10 lines
-
-//        char character = ((String) payload.get("text")).charAt(0); // TODO: Text batches
-//        int index = (int) payload.get("offset");
-//        long siteID = (long) payload.get("siteID"); // TODO: change to UUID
-//        int stateID = (int) payload.get("stateID");
-
         Long documentId = Long.parseLong((String) simpMessageHeaderAccessor.getSessionAttributes().get("docID"));
-
-//        String type = "";
-//        if (((String) payload.get("type")).equals("insert_text")) {
-//            type = "insert_text";
-//        } else if (((String) payload.get("type")).equals("remove_text")) {
-//            type = "insert_text";
-//        }
-
 
         // char, position, siteid, stateid, op
         Operation op = payload.toOperation();
+
         try {
             op = documentEditService.update(documentId, op);
         } catch (Exception e) {
@@ -65,23 +52,31 @@ public class DocumentEditController {
         payload.setOffset(op.getPosition());
         payload.setStateID(op.getStateId());
 
-        messagingTemplate.convertAndSend("/topic/1", payload);
-        //System.out.println(activeDocuments.get(1).getText());
+        messagingTemplate.convertAndSend("/topic/"+documentId, payload);
         System.out.println(payload.toString());
         System.out.println("------------------------------");
+    }
 
+    @MessageMapping("/changestyle")
+    public void applyStyleOperation(StyleOperationDTO payload, SimpMessageHeaderAccessor simpMessageHeaderAccessor) {
+        Long documentId = Long.parseLong((String) simpMessageHeaderAccessor.getSessionAttributes().get("docID"));
+        StyleOperationDTO temp = null;
+        try {
+            temp = documentEditService.addTag(documentId, payload);
+        } catch (Exception e) {
+            messagingTemplate.convertAndSend("/topic/"+documentId, "404");
+            e.printStackTrace();
+        }
+
+        payload.setOffset(temp.getOffset());
+        payload.setEndOffset(temp.getEndOffset());
+        messagingTemplate.convertAndSend("/topic/"+documentId, payload);
     }
 
     @SubscribeMapping("file/{docId}")
     public ResponseEntity<?> getDocument(@DestinationVariable String docId, SimpMessageHeaderAccessor simpMessageHeaderAccessor, Principal p) {
         System.out.println("Document Id is: " + docId);
         simpMessageHeaderAccessor.getSessionAttributes().put("docID", docId);
-        /*
-         * code = server response. 404 - Document doesn't exist 403 - Document is
-         * forbidden 1 - All good
-         *
-         *
-         */
 
         //TODO: Possible DB optimization with the query (we're looking for editors, and if we find it then we again look for the file)
         List<String> users = collabUserRepository.findAllEditors(Long.parseLong(docId));
@@ -93,12 +88,17 @@ public class DocumentEditController {
 
         Document d = documentEditService.getDocument(Long.parseLong(docId));
 
-        HashMap<String, String> response = new HashMap<>();
+        HashMap<String, Object> response = new HashMap<>();
         if (d == null) {
             return ResponseEntity.notFound().build();
         } else {
             response.put("state", String.valueOf(d.getState()));
-            response.put("text", d.getText());
+            String text = "";
+            for(String node : d.getTextArray()){
+                text+= node;
+            }
+            response.put("text", text);
+            response.put("tree", d.getStyleTree());
             return ResponseEntity.ok(response);
         }
     }
