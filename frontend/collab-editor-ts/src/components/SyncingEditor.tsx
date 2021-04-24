@@ -59,9 +59,9 @@ export const SyncingEditor: React.FC<Props> = () => {
     const socket = useRef(new SockJS('http://localhost:8080/collab-editor?access_token=' + cookies.get("auth")))
     const stompClient = useRef(Stomp.over(socket.current));
     //stompClient.current.debug = () => { };
-    
 
-    const [value, setValue,thing] = useStateRef<SlateElement[]>([
+
+    const [value, setValue, thing] = useStateRef<SlateElement[]>([
         {
             type: 'paragraph',
             children: [{ text: '' }],
@@ -86,36 +86,36 @@ export const SyncingEditor: React.FC<Props> = () => {
 
     useEffect(() => {
 
-            if (!stompClient.current.connected) {
+        if (!stompClient.current.connected) {
 
-                let jwt: String = cookies.get('auth');
-                jwt = jwt.substr(7);
-                stompClient.current.connect({ auth: jwt }, function () {
-                    let id = window.location.href.split('/').pop();
+            let jwt: String = cookies.get('auth');
+            jwt = jwt.substr(7);
+            stompClient.current.connect({ auth: jwt }, function () {
+                let id = window.location.href.split('/').pop();
 
-                    stompClient.current.subscribe('/app/file/' + id, function (data: Stomp.Message) {
+                stompClient.current.subscribe('/app/file/' + id, function (data: Stomp.Message) {
 
-                        let response = JSON.parse(data.body).body;
-                        setValue(parseTree(response.text, response.tree));
+                    let response = JSON.parse(data.body).body;
+                    setValue(parseTree(response.text, response.tree));
 
-                        stateID = Number(response.state);
-                        setText(toRichText(response.text));
-                    });
+                    stateID = Number(response.state);
+                    setText(toRichText(response.text));
+                });
 
 
-                    stompClient.current.subscribe('/topic/' + id, function (data: any) {
-                        let op = JSON.parse(data.body);
-                        if (op.endOffset !== undefined) {
-                            onStyleReceived(op);
-                        } else {
-                            onReceived(op);
-                            received.push(op);
-                        }
-                    });
+                stompClient.current.subscribe('/topic/' + id, function (data: any) {
+                    let op = JSON.parse(data.body);
+                    if (op.endOffset !== undefined) {
+                        onStyleReceived(op);
+                    } else {
+                        onReceived(op);
+                        received.push(op);
+                    }
+                });
 
-                    stompClient.current.subscribe('/app')
-                })
-            }
+                stompClient.current.subscribe('/app')
+            })
+        }
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [value])
@@ -292,7 +292,7 @@ export const SyncingEditor: React.FC<Props> = () => {
 
 
 
-                let startCursor = getRelativeOffset(op.offset);
+                let startCursor = getRelativeOffsetStart(op.offset);
                 let path = startCursor[0] as Path;
                 let offset = startCursor[1] as number;
 
@@ -367,6 +367,18 @@ export const SyncingEditor: React.FC<Props> = () => {
             if (op.offset >= 0) {
                 remote.current = true;
 
+                
+                let path, offset;
+                if(op.type === "insert_text")
+                  [path,offset]= getRelativeOffsetInsert(op.offset)
+                else
+                    [path,offset]= getRelativeOffsetDelete(op.offset)
+
+                //@ts-ignore
+                op.path = path
+                //@ts-ignore
+
+                op.offset = offset
                 editor.apply(op);
                 //historyBuffer.push(op)
                 //setHistoryBuffer(hb => [...hb, op]);
@@ -470,19 +482,109 @@ export const SyncingEditor: React.FC<Props> = () => {
         for (let i = 0; i < thing.current.length; i++) {
             for (let j = 0; j < (thing.current[i].children as Array<Node>).length; j++) {
                 let child = ((thing.current[i].children as Array<Node>)[j] as Node)
-                if (offset < (child.text as string).length) {
+                if (offset <= (child.text as string).length) {
                     console.log(j)
                     found = true;
-                    console.log('if: ' + j )
+                    console.log('if: ' + j)
                     path[1] = j
 
                     // console.log(j)
                     // console.log(path[1])
                     break;
                 } else {
-                    console.log('else: ' + j )
-                    if(j < (thing.current[i].children as Array<Node>).length-1)
-                        offset -= (child.text as string).length
+                    console.log('else: ' + j)
+                    offset -= (child.text as string).length
+                }
+                path[1] = j
+            }
+            path[0] = i;
+            if (found) break;
+        }
+        console.log(offset)
+        return [path as Path, offset as number];
+    }
+
+    function getRelativeOffsetInsert(offset: number) {
+        // initial offset, account for <p><whatever_tag>
+        let path: Path = [0, 0];
+        let found = false;
+        //calculate size of previous rows
+        for (let i = 0; i < thing.current.length; i++) {
+            for (let j = 0; j < (thing.current[i].children as Array<Node>).length; j++) {
+                let child = ((thing.current[i].children as Array<Node>)[j] as Node)
+                if (offset <= (child.text as string).length) {
+                    console.log(j)
+                    found = true;
+                    console.log('if: ' + j)
+                    path[1] = j
+
+                    // console.log(j)
+                    // console.log(path[1])
+                    break;
+                } else {
+                    console.log('else: ' + j)
+                    offset -= (child.text as string).length
+                }
+                path[1] = j
+            }
+            path[0] = i;
+            if (found) break;
+        }
+        console.log(offset)
+        return [path as Path, offset as number];
+    }
+
+    function getRelativeOffsetDelete(offset: number) {
+        // initial offset, account for <p><whatever_tag>
+        let path: Path = [0, 0];
+        let found = false;
+        //calculate size of previous rows
+        for (let i = 0; i < thing.current.length; i++) {
+            for (let j = 0; j < (thing.current[i].children as Array<Node>).length; j++) {
+                let child = ((thing.current[i].children as Array<Node>)[j] as Node)
+                if (offset < (child.text as string).length) {
+                    console.log(j)
+                    found = true;
+                    console.log('if: ' + j)
+                    path[1] = j
+
+                    // console.log(j)
+                    // console.log(path[1])
+                    break;
+                } else {
+                    console.log('else: ' + j)
+                    offset -= (child.text as string).length
+                }
+                path[1] = j
+            }
+            path[0] = i;
+            if (found) break;
+        }
+        console.log(offset)
+        return [path as Path, offset as number];
+    }
+
+
+    function getRelativeOffsetStart(offset: number) {
+        // initial offset, account for <p><whatever_tag>
+        let path: Path = [0, 0];
+        let found = false;
+        //calculate size of previous rows
+        for (let i = 0; i < thing.current.length; i++) {
+            for (let j = 0; j < (thing.current[i].children as Array<Node>).length; j++) {
+                let child = ((thing.current[i].children as Array<Node>)[j] as Node)
+                if (offset < (child.text as string).length) {
+                    console.log(j)
+                    found = true;
+                    console.log('if: ' + j)
+                    path[1] = j
+
+                    // console.log(j)
+                    // console.log(path[1])
+                    break;
+                } else {
+                    console.log('else: ' + j)
+                    offset -= (child.text as string).length
                 }
                 path[1] = j
             }

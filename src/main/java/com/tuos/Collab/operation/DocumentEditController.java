@@ -57,6 +57,21 @@ public class DocumentEditController {
         System.out.println("------------------------------");
     }
 
+    @MessageMapping("/sendcopy")
+    public void sendOperation(String payload) {
+        System.out.println(payload.toString());
+//
+//        try {
+//            op = documentEditService.update(documentId, op);
+//        } catch (Exception e) {
+//            // TODO Auto-generated catch block
+//            messagingTemplate.convertAndSend("/topic/1", "404");
+//            e.printStackTrace();
+//        }
+
+        messagingTemplate.convertAndSend("/topic/2", payload);
+    }
+
     @MessageMapping("/changestyle")
     public void applyStyleOperation(StyleOperationDTO payload, SimpMessageHeaderAccessor simpMessageHeaderAccessor) {
         Long documentId = Long.parseLong((String) simpMessageHeaderAccessor.getSessionAttributes().get("docID"));

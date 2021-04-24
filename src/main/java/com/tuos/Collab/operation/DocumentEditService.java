@@ -43,12 +43,12 @@ public class DocumentEditService {
                 for (Leaf le : el.getLeaves()) {
                     StringBuilder tag = new StringBuilder(le.getTypesAsString());
 
-                    tag.insert(0,"<");
+                    tag.insert(0, "<");
                     tag.append(">");
                     text.insert(cursor, tag);
                     cursor += tag.length();
                     cursor += le.getSize();
-                    tag.insert(1,"/");
+                    tag.insert(1, "/");
                     text.insert(cursor, tag);
                     cursor += tag.length();
                 }
@@ -90,13 +90,13 @@ public class DocumentEditService {
         historyBuffer = doc.getHistoryBuffer();
 
 
-        Operation startingTag =  new Operation(styleTag.getStartingTag());
+        Operation startingTag = new Operation(styleTag.getStartingTag());
         Operation endingTag = new Operation(styleTag.getEndingTag());
         startingTag = integrate(startingTag);
         endingTag = integrate(endingTag);
 
         boolean newTag = startingTag.getType().equals("insert_text");
-        doc.getStyleTree().update(startingTag.getPosition(),endingTag.getPosition(),startingTag.getCharacter(), newTag);
+        doc.getStyleTree().update(startingTag.getPosition(), endingTag.getPosition(), startingTag.getCharacter(), newTag);
 //
 //        el.setSize(el.getSize() + 2);
 //        leaf.setSize(leaf.getSize() + 2);
@@ -116,10 +116,23 @@ public class DocumentEditService {
         List<String> textArray = doc.getTextArray();
 
         op = this.integrate(op);
+         Leaf leaf;
+        int[] path;
+        Element el;
+        if (op.getType().equals("remove_text")) {
+            path = doc.getStyleTree().findPath(op.getPosition());
+            el = doc.getStyleTree().get(path[0]);
+            leaf = el.getLeaf(path[1]);
+            System.out.println("Element" + path[0]);
+            System.out.println("Child" + path[1]);
+        } else {
+            path = doc.getStyleTree().findPath(op.getPosition());
+            el = doc.getStyleTree().get(path[0]);
+            leaf = el.getLeaf(path[1]);
+            System.out.println("Element" + path[0]);
+            System.out.println("Child" + path[1]);
+        }
 
-        int[] path = doc.getStyleTree().findPath(op.getPosition());
-        Element el = doc.getStyleTree().get(path[0]);
-        Leaf leaf = el.getLeaf(path[1]);
 
         if (op.getPosition() >= 0 && op.getPosition() <= textArray.size()) {
             if (op.getType().equals("insert_text")) {
@@ -130,6 +143,8 @@ public class DocumentEditService {
                 textArray.remove(op.getPosition());
                 leaf.setSize(leaf.getSize() - 1);
                 el.setSize(el.getSize() - 1);
+                if(leaf.getSize() == 0)
+                    el.removeAndMerge(path[1]);
             }
             op.setStateID(doc.getState());
             doc.incrementState();
@@ -501,6 +516,4 @@ public class DocumentEditService {
     public void deleteActiveDocument(Long id) {
         activeDocuments.remove(id);
     }
-
-
 }

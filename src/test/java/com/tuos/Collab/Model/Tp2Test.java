@@ -238,6 +238,17 @@ public class Tp2Test {
     }
 
     @Test
+    public void testDeleteRich(){
+        StyleTree styleTree = document.generateTree("<p><span>1</span><strong>2345</strong><span>6</span><strong>7</strong>890</strong></p>");
+        styleTree.update(0,3,"strong",true);
+
+        assertEquals(styleTree.get(0).getLeaf(0).getSize(), 6);
+        assertEquals(styleTree.get(0).getLeaf(1).getSize(), 3);
+        assertEquals(styleTree.get(0).getLeaf(0).getTypes(), setOf("strong"));
+        assertEquals(styleTree.get(0).getLeaf(1).getTypes(), setOf());
+    }
+
+    @Test
     public void styleAndUnstyle(){
         StyleTree styleTree = document.generateTree("<p><span>1234567890</span></p>");
         styleTree.update(4,6,"strong",true);

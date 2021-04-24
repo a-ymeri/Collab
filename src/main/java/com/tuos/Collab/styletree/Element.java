@@ -29,12 +29,29 @@ public class Element {
         return size;
     }
 
-    public void remove(int i) {
-        leaves.remove(i);
+    public Leaf remove(int i) {
+        return leaves.remove(i);
     }
 
     public void add(int i, Leaf newLeaf) {
         leaves.add(i,newLeaf);
+    }
+
+    public void removeAndMerge(int index) {
+
+        if(leaves.size()>1) {
+            if (index > 0 && index < leaves.size() - 1) {
+                Leaf l1 = leaves.get(index - 1);
+                Leaf l2 = leaves.get(index + 1);
+                if (l1.getTypes().equals(l2.getTypes())) {
+                    l1.merge(l2);
+                    leaves.remove(index + 1);
+                }
+
+            }
+            remove(index);
+        }
+
     }
 
 

@@ -55,8 +55,8 @@ public class StyleTree {
         }
         //Since the previous loop has subtracted the size of the other nodes, the offset is relative to the node
 //        Leaf leaf = null;
-        for (int i = 0; i < element.size(); i++) {
-            int leafSize = element.getLeaf(i).getSize() + 2; //account for opening and closing tag
+        for (int i = 0; i < element.getLeaves().size(); i++) {
+            int leafSize = element.getLeaf(i).getSize(); //account for opening and closing tag
             if (offset < leafSize) {
 //                leaf = element.getLeaf(i);
                 path[1] = i;
